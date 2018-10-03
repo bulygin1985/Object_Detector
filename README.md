@@ -1,7 +1,7 @@
 # Object_Detector
-Code for AI Ukraine 2018 workshop "Object detector creation from scratch"
+Code for AI Ukraine 2018 workshop "Object detector creation from scratch".
 
-It is Basic object detector tutorial to understanding single-stage object detector workflow
+It is a basic object detector tutorial to understanding single-stage object detector workflow.
 
 To prepare for the workshop, please:
 
