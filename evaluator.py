@@ -2,6 +2,7 @@ from copy import deepcopy
 import numpy as np
 import pdb
 
+
 def calc_iou_individual(pred_box, gt_box):
     """Calculate IoU of single predicted and ground truth box
 
@@ -21,11 +22,11 @@ def calc_iou_individual(pred_box, gt_box):
     x1_p, y1_p, x2_p, y2_p = pred_box
 
     if (x1_p > x2_p) or (y1_p > y2_p):
-        raise AssertionError(
-            "Prediction box is malformed? pred box: {}".format(pred_box))
+        print("Prediction box is malformed? pred box: {}".format(pred_box))
+        return 0
     if (x1_t > x2_t) or (y1_t > y2_t):
         raise AssertionError(
-            "Ground Truth box is malformed? true box: {}".format(gt_box))
+            print("Ground Truth box is malformed? true box: {}".format(gt_box)))
     if (x2_t < x1_p or x2_p < x1_t or y2_t < y1_p or y2_p < y1_t):
         return 0.0
 
@@ -37,8 +38,9 @@ def calc_iou_individual(pred_box, gt_box):
     inter_area = (far_x - near_x + 1) * (far_y - near_y + 1)
     true_box_area = (x2_t - x1_t + 1) * (y2_t - y1_t + 1)
     pred_box_area = (x2_p - x1_p + 1) * (y2_p - y1_p + 1)
-    iou = float(inter_area) / float( (true_box_area + pred_box_area - inter_area) )
+    iou = float(inter_area) / float((true_box_area + pred_box_area - inter_area))
     return iou
+
 
 def get_single_image_results(gt_boxes, pred_boxes, iou_thr):
     """Calculates number of true_pos, false_pos, false_neg from single batch of boxes.
@@ -120,6 +122,7 @@ def get_model_scores_map(pred_boxes):
                 model_scores_map[score].append(img_id)
     return model_scores_map
 
+
 def get_avg_precision_at_iou(gt_boxes, pred_boxes, iou_thr=0.5):
     """Calculates average precision at given IoU threshold.
 
@@ -181,7 +184,7 @@ def get_avg_precision_at_iou(gt_boxes, pred_boxes, iou_thr=0.5):
             img_results[img_id] = get_single_image_results(
                 gt_boxes_img, pred_boxes_pruned[img_id]['boxes'], iou_thr)
 
-        prec, rec = calc_precision_recall(img_results)  #just summarized results for each image
+        prec, rec = calc_precision_recall(img_results)  # just summarized results for each image
         precisions.append(prec)
         recalls.append(rec)
         model_thrs.append(model_score_thr)
@@ -204,6 +207,7 @@ def get_avg_precision_at_iou(gt_boxes, pred_boxes, iou_thr=0.5):
         'recalls': recalls,
         'model_thrs': model_thrs}
 
+
 def calc_precision_recall(img_results):
     """Calculates precision and recall from the set of images
 
@@ -218,7 +222,9 @@ def calc_precision_recall(img_results):
     Returns:
         tuple: of floats of (precision, recall)
     """
-    true_pos = 0.0; false_pos = 0.0; false_neg = 0.0
+    true_pos = 0.0
+    false_pos = 0.0
+    false_neg = 0.0
     for _, res in img_results.items():
         true_pos += res['true_pos']
         false_pos += res['false_pos']

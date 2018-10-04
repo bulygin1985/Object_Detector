@@ -1,5 +1,3 @@
-import os
-import sys
 import numpy as np
 from keras.utils import Sequence
 import data_preprocessing
@@ -18,17 +16,41 @@ class BatchGenerator(Sequence):
         self.grid_h = config.get('grid_h', 7)
         self.img_w = config.get('img_w', 224)  # width of the image for NN input
         self.img_h = config.get('img_h', 224)
-        self.aug_type = config.get('aug_type', 'short')
-        print("iteration_num = ", self.__len__())
+        self.shift_x = config.get('shift_x', 0.1)
+        self.shift_y = config.get('shift_y', 0.1)
+        self.flip = data_preprocessing.RandomHorizontalFlip()
+        self.shift = data_preprocessing.RandomShift(self.shift_x, self.shift_y)
         if self.is_augment:
-            print("use augmentation with type:", self.aug_type)
+            print("data will be augmented with random flip and random left-right shift on " +
+                  str(self.shift_x * 100.0) + " percents and top-bottom shift on " +
+                  str(self.shift_y * 100.0) + " percents.")
+        print("iteration_num = ", self.__len__())
+
+    def filter_rects(self, rects_aug):
+        '''
+        filter remove rectangles which centers are outside the image
+        and cut rectangles which go out the image
+        '''
+        rects_aug_filtered = []
+        for rect in rects_aug:
+            x_c = rect[0] + rect[2] / 2.0
+            y_c = rect[1] + rect[3] / 2.0
+            x_max = rect[0] + rect[2]
+            y_max = rect[1] + rect[3]
+            w = self.img_w
+            h = self.img_h
+            if x_c < w and x_c > 0 and y_c < h and y_c > 0:  # at least half of image must be on image
+                x_min = np.maximum(0, rect[0])
+                y_min = np.maximum(0, rect[1])
+                x_max = np.minimum(w-1, x_max)
+                y_max = np.minimum(h-1, y_max)
+                rects_aug_filtered += [np.array([x_min, y_min, x_max - x_min, y_max - y_min])]
+        return rects_aug_filtered
 
     # input : normalized rects (x_c, y_c, w, h), each value in [0,1]
     # output : labels for YOLO loss function, rect in each grid cell in relative to the cell coordinates
     def convert_GT_to_YOLO(self, rects):
         y_YOLO = np.zeros((self.grid_h, self.grid_w, 4 + 1))
-        # import pdb
-        # pdb.set_trace()
         for rect in rects:
             center_x = rect[0] * self.grid_w
             center_y = rect[1] * self.grid_h
@@ -46,19 +68,22 @@ class BatchGenerator(Sequence):
 
     def __getitem__(self, idx):
         indices = np.random.choice(len(self.data), self.batch_size, replace=False)
+        return self.get_XY(indices)
+
+    def get_XY(self, indices):
         instance_count = 0
 
-        x_batch = np.zeros((self.batch_size, self.img_h, self.img_w, 3))                         # input images
-        y_batch = np.zeros((self.batch_size, self.grid_h,  self.grid_w, 4+1))                # desired network output
-
+        x_batch = np.zeros((len(indices), self.img_h, self.img_w, 3))          # input images
+        y_batch = np.zeros((len(indices), self.grid_h,  self.grid_w, 4+1))     # desired network output
         for index in indices:
             filename = list(self.data.keys())[index]
             # augment input image and fix object's position and size
             image = np.array(Image.open(filename))
             rects = self.data[filename]
             if self.is_augment:
-                image, rects = data_preprocessing.random_transform(
-                    image, rects, data_preprocessing.get_image_data_generator(self.aug_type))
+                image, rects = self.flip(image, rects)
+                image, rects = self.shift(image, rects)
+                rects = self.filter_rects(rects)
 
             image_norm, rects_norm = data_preprocessing.normalize_data(image, self.img_w, self.img_h, rects)
 
