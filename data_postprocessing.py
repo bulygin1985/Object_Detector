@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 
 
-class Encoder:
+class Decoder:
     def __init__(self, GRID_W, GRID_H, input_w, input_h, threshold=0.5):
         self.GRID_W = GRID_W
         self.GRID_H = GRID_H
@@ -42,7 +42,7 @@ class Encoder:
         rects[:, 3] += rects[:, 1]
         return rects
 
-    def encode(self, nn_out):
+    def decode(self, nn_out):
         rects = []
         scores = []
         for out in nn_out:
@@ -58,7 +58,7 @@ class Encoder:
             scores += [scores_pred[indices]]
         return rects, scores
 
-    def encode_GT(self, nn_out):
+    def decode_GT(self, nn_out):
         rects = []
         for out in nn_out:
             rects_GT, _ = self.label_to_rects(out)
