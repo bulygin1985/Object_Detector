@@ -27,7 +27,7 @@ def draw_image_rects(image, rects, is_normalized=False):
     im = Image.fromarray(image_to_show)
     draw = ImageDraw.Draw(im)
     for rect in rects_to_show:
-        draw.rectangle(((rect[0], rect[1]), (rect[0] + rect[2], rect[1] + rect[3])), outline='red')
+        draw_rectangle(draw, rect[0], rect[1], rect[0] + rect[2], rect[1] + rect[3], color='red', width=3)
     return np.array(im)
 
 
