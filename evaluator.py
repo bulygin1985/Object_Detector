@@ -41,7 +41,20 @@ def calc_iou_individual(pred_box, gt_box):
     iou = float(inter_area) / float((true_box_area + pred_box_area - inter_area))
     return iou
 
-
+def sort_ious(gt_boxes, pred_boxes, iou_thr):
+    gt_idx_thr = []
+    pred_idx_thr = []
+    ious = []
+    for ipb, pred_box in enumerate(pred_boxes):
+        for igb, gt_box in enumerate(gt_boxes):
+            iou = calc_iou_individual(pred_box, gt_box)
+            if iou > iou_thr:
+                gt_idx_thr.append(igb)
+                pred_idx_thr.append(ipb)
+                ious.append(iou)
+    args_desc = np.argsort(ious)[::-1]
+    return args_desc, gt_idx_thr, pred_idx_thr
+    
 def get_single_image_results(gt_boxes, pred_boxes, iou_thr):
     """Calculates number of true_pos, false_pos, false_neg from single batch of boxes.
 
@@ -70,17 +83,8 @@ def get_single_image_results(gt_boxes, pred_boxes, iou_thr):
         fn = 0
         return {'true_pos': tp, 'false_pos': fp, 'false_neg': fn}
 
-    gt_idx_thr = []
-    pred_idx_thr = []
-    ious = []
-    for ipb, pred_box in enumerate(pred_boxes):
-        for igb, gt_box in enumerate(gt_boxes):
-            iou = calc_iou_individual(pred_box, gt_box)
-            if iou > iou_thr:
-                gt_idx_thr.append(igb)
-                pred_idx_thr.append(ipb)
-                ious.append(iou)
-    args_desc = np.argsort(ious)[::-1]
+    args_desc, gt_idx_thr, pred_idx_thr = sort_ious(gt_boxes, pred_boxes, iou_thr)
+    
     if len(args_desc) == 0:
         # No matches
         tp = 0
@@ -122,46 +126,13 @@ def get_model_scores_map(pred_boxes):
                 model_scores_map[score].append(img_id)
     return model_scores_map
 
-
-def get_avg_precision_at_iou(gt_boxes, pred_boxes, iou_thr=0.5):
-    """Calculates average precision at given IoU threshold.
-
-    Args:
-        gt_boxes (list of list of floats): list of locations of ground truth
-            objects as [xmin, ymin, xmax, ymax]
-        pred_boxes (list of list of floats): list of locations of predicted
-            objects as [xmin, ymin, xmax, ymax]
-        iou_thr (float): value of IoU to consider as threshold for a
-            true prediction.
-
-    Returns:
-        dict: avg precision as well as summary info about the PR curve
-
-        Keys:
-            'avg_prec' (float): average precision for this IoU threshold
-            'precisions' (list of floats): precision value for the given
-                model_threshold
-            'recall' (list of floats): recall value for given
-                model_threshold
-            'models_thrs' (list of floats): model threshold value that
-                precision and recall were computed for.
-    """
-    model_scores_map = get_model_scores_map(pred_boxes)
+def get_thr_prec_rec(gt_boxes, model_scores_map, pred_boxes_pruned, iou_thr=0.5):
+    # Loop over model score thresholds and calculate precision, recall
     sorted_model_scores = sorted(model_scores_map.keys())
-
-    # Sort the predicted boxes in descending order (lowest scoring boxes first):
-    for img_id in pred_boxes.keys():
-        arg_sort = np.argsort(pred_boxes[img_id]['scores'])
-        pred_boxes[img_id]['scores'] = np.array(pred_boxes[img_id]['scores'])[arg_sort].tolist()
-        pred_boxes[img_id]['boxes'] = np.array(pred_boxes[img_id]['boxes'])[arg_sort].tolist()
-
-    pred_boxes_pruned = deepcopy(pred_boxes)
-
+    img_results = {}
     precisions = []
     recalls = []
     model_thrs = []
-    img_results = {}
-    # Loop over model score thresholds and calculate precision, recall
     for ithr, model_score_thr in enumerate(sorted_model_scores[:-1]):
         # On first iteration, define img_results for the first time:
         img_ids = gt_boxes.keys() if ithr == 0 else model_scores_map[model_score_thr]
@@ -188,7 +159,43 @@ def get_avg_precision_at_iou(gt_boxes, pred_boxes, iou_thr=0.5):
         precisions.append(prec)
         recalls.append(rec)
         model_thrs.append(model_score_thr)
+    return model_thrs, precisions, recalls
 
+def get_avg_precision_at_iou(gt_boxes, pred_boxes, iou_thr=0.5):
+    """Calculates average precision at given IoU threshold.
+
+    Args:
+        gt_boxes (list of list of floats): list of locations of ground truth
+            objects as [xmin, ymin, xmax, ymax]
+        pred_boxes (list of list of floats): list of locations of predicted
+            objects as [xmin, ymin, xmax, ymax]
+        iou_thr (float): value of IoU to consider as threshold for a
+            true prediction.
+
+    Returns:
+        dict: avg precision as well as summary info about the PR curve
+
+        Keys:
+            'avg_prec' (float): average precision for this IoU threshold
+            'precisions' (list of floats): precision value for the given
+                model_threshold
+            'recall' (list of floats): recall value for given
+                model_threshold
+            'models_thrs' (list of floats): model threshold value that
+                precision and recall were computed for.
+    """
+    model_scores_map = get_model_scores_map(pred_boxes)
+
+    # Sort the predicted boxes in descending order (lowest scoring boxes first):
+    for img_id in pred_boxes.keys():
+        arg_sort = np.argsort(pred_boxes[img_id]['scores'])
+        pred_boxes[img_id]['scores'] = np.array(pred_boxes[img_id]['scores'])[arg_sort].tolist()
+        pred_boxes[img_id]['boxes'] = np.array(pred_boxes[img_id]['boxes'])[arg_sort].tolist()
+
+    pred_boxes_pruned = deepcopy(pred_boxes)
+
+    model_thrs, precisions, recalls = get_thr_prec_rec(gt_boxes, model_scores_map, pred_boxes_pruned, iou_thr)
+    
     precisions = np.array(precisions)
     recalls = np.array(recalls)
     prec_at_rec = []
