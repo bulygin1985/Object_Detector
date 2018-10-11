@@ -31,7 +31,6 @@ conda==4.5.11
 conda-build==3.10.5
 conda-verify==2.0.0
 contextlib2==0.5.5
-cryptography==2.2.2
 cycler==0.10.0
 Cython==0.28.2
 cytoolz==0.9.0.1
@@ -129,7 +128,6 @@ py==1.5.3
 pycodestyle==2.4.0
 pycosat==0.6.3
 pycparser==2.18
-pycrypto==2.6.1
 pycurl==7.43.0.1
 pyflakes==1.6.0
 Pygments==2.2.0
@@ -155,7 +153,6 @@ QtAwesome==0.4.4
 qtconsole==4.3.1
 QtPy==1.4.1
 requests==2.18.4
-rope==0.10.7
 ruamel-yaml==0.15.35
 scikit-image==0.13.1
 scikit-learn==0.19.1
